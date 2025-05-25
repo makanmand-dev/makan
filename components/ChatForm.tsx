@@ -11,7 +11,7 @@ const questions = [
 
 export default function ChatForm() {
   const [step, setStep] = useState(0);
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, string>>({});
   const [messages, setMessages] = useState<string[]>([]);
   const [input, setInput] = useState('');
 
