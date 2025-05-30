@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import { extractInfoFromText } from '@/lib/extractInfoFromText';
 
@@ -14,6 +15,7 @@ export default function ChatForm() {
   const [messages, setMessages] = useState<string[]>([]);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [input, setInput] = useState('');
+  const [askedKeys, setAskedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setMessages([
@@ -24,41 +26,53 @@ export default function ChatForm() {
       'یا اگر ترجیح می‌دی، به سؤالات ساده زیر پاسخ بده.',
       `– ${questions[0].text}`
     ]);
+    setAskedKeys(new Set(['type']));
   }, []);
 
   const handleSend = async () => {
     if (!input.trim()) return;
 
     const newMessages = [...messages, `● ${input}`];
+
     const extracted = extractInfoFromText(input);
-    const cleaned = Object.fromEntries(Object.entries(extracted).filter(([_, val]) => val && val.trim() !== ''));
+    const cleaned = Object.fromEntries(Object.entries(extracted).filter(([_, val]) => val?.trim() !== ''));
     const updatedForm = { ...formData, ...cleaned };
 
     setFormData(updatedForm);
-    const unanswered = questions.map(q => q.key).filter(key => !updatedForm[key]);
+
+    // شناسایی سوالات بی‌پاسخ
+    const unanswered = questions.map(q => q.key).filter(
+      key => !updatedForm[key] && !askedKeys.has(key)
+    );
 
     if (unanswered.length > 0) {
       const nextKey = unanswered[0];
       const nextQ = questions.find(q => q.key === nextKey);
-      if (nextQ) newMessages.push(`– ${nextQ.text}`);
-    } else {
+      if (nextQ) {
+        newMessages.push(`– ${nextQ.text}`);
+        setAskedKeys(new Set([...askedKeys, nextKey]));
+      }
+    } else if (Object.keys(updatedForm).length === questions.length) {
       newMessages.push('⏳ در حال ارسال اطلاعات...');
+
       try {
         const res = await fetch('/api/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatedForm)
         });
+
         const json = await res.json();
         if (json.success) {
           newMessages.push('✅ اطلاعات ثبت شد.');
           questions.forEach(q => {
             newMessages.push(`${q.text} ${updatedForm[q.key]}`);
           });
+          setFormData({});
+          setAskedKeys(new Set());
         } else {
           newMessages.push('❌ خطا در ثبت اطلاعات: ' + json.error);
         }
-        setFormData({});
       } catch {
         newMessages.push('❌ خطای شبکه!');
       }
@@ -71,7 +85,9 @@ export default function ChatForm() {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <div style={{ flex: 1, overflowY: 'auto', background: '#fff', padding: '1rem', borderRadius: '8px', boxShadow: '0 0 10px rgba(0,0,0,0.05)', marginBottom: '1rem' }}>
-        {messages.map((msg, i) => <div key={i} style={{ marginBottom: '0.5rem' }}>{msg}</div>)}
+        {messages.map((msg, i) => (
+          <div key={i} style={{ marginBottom: '0.5rem' }}>{msg}</div>
+        ))}
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <input
@@ -81,7 +97,10 @@ export default function ChatForm() {
           placeholder="پاسخ شما..."
           style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
         />
-        <button onClick={handleSend} style={{ padding: '0.5rem 1rem', background: '#0a9396', color: '#fff', border: 'none', borderRadius: '4px' }}>
+        <button
+          onClick={handleSend}
+          style={{ padding: '0.5rem 1rem', background: '#0a9396', color: '#fff', border: 'none', borderRadius: '4px' }}
+        >
           ارسال
         </button>
       </div>
