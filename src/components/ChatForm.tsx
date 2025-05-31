@@ -44,14 +44,15 @@ export default function ChatForm() {
 
     let newMessages = [...messages, `● ${input}`];
 
+    // مرحله تأیید کاربر بعد از ثبت ملک
     if (status === 'confirmed') {
       const answer = input.trim().toLowerCase();
-      if (['بله', 'آره', 'بلی', 'ثبت کن', 'باشه'].includes(answer)) {
+      if (['بله', 'بلی', 'آره', 'باشه', 'ثبت کن'].includes(answer)) {
         newMessages.push('✅ خیلی خب، بزن بریم!');
         setMessages(newMessages);
         resetForm();
       } else {
-        newMessages.push('👋 ممنون از شما. به امید دیدار.');
+        newMessages.push('🙏 ممنون از همراهی‌تون. به امید دیدار.');
         setMessages(newMessages);
         setStatus('done');
       }
@@ -60,56 +61,58 @@ export default function ChatForm() {
     }
 
     const extracted = extractInfoFromText(input);
-    const cleaned = Object.fromEntries(Object.entries(extracted).filter(([_, val]) => val?.trim() !== ''));
+    const cleaned = Object.fromEntries(
+      Object.entries(extracted).filter(([_, val]) => val?.trim() !== '')
+    );
     const updatedForm = { ...formData, ...cleaned };
 
     setFormData(updatedForm);
 
-    const unanswered = questions.map(q => q.key).filter(
-      key => !updatedForm[key] && !askedKeys.has(key)
-    );
+    const unanswered = questions
+      .map(q => q.key)
+      .filter(key => !updatedForm[key] || updatedForm[key].trim() === '');
 
     if (unanswered.length > 0) {
       const nextKey = unanswered[0];
       const nextQ = questions.find(q => q.key === nextKey);
-      if (nextQ) {
+      if (nextQ && !askedKeys.has(nextKey)) {
         newMessages.push(`– ${nextQ.text}`);
         setAskedKeys(new Set([...askedKeys, nextKey]));
       }
-    } else if (Object.keys(updatedForm).length === questions.length) {
-      if (!location) {
-        newMessages.push('📍 لطفاً ابتدا موقعیت ملک را روی نقشه انتخاب و تأیید کنید.');
-      } else {
-        newMessages.push('⏳ در حال ارسال اطلاعات...');
-        const finalData = {
-          ...updatedForm,
-          lat: location.lat,
-          lng: location.lng,
-          locationAddress: location.address
-        };
+    }
 
-        try {
-          const res = await fetch('/api/properties', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(finalData)
+    if (unanswered.length === 0 && location) {
+      newMessages.push('⏳ در حال ارسال اطلاعات...');
+      const finalData = {
+        ...updatedForm,
+        lat: location.lat,
+        lng: location.lng,
+        locationAddress: location.address
+      };
+
+      try {
+        const res = await fetch('/api/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalData)
+        });
+        const json = await res.json();
+        if (json.success) {
+          newMessages.push('✅ اطلاعات ملک با موفقیت ثبت شد.');
+          questions.forEach(q => {
+            newMessages.push(`${q.text} ${updatedForm[q.key]}`);
           });
-          const json = await res.json();
-          if (json.success) {
-            newMessages.push('✅ اطلاعات ثبت شد.');
-            questions.forEach(q => {
-              newMessages.push(`${q.text} ${updatedForm[q.key]}`);
-            });
-            newMessages.push(`📍 محل ثبت‌شده: ${location.address}`);
-            newMessages.push('💬 آیا می‌خوای ملک دیگه‌ای رو ثبت کنی؟');
-            setStatus('confirmed');
-          } else {
-            newMessages.push('❌ خطا در ثبت اطلاعات: ' + json.error);
-          }
-        } catch {
-          newMessages.push('❌ خطای شبکه!');
+          newMessages.push(`📍 موقعیت: ${location.address}`);
+          newMessages.push('💬 آیا می‌خوای ملک دیگه‌ای رو ثبت کنی؟ (بله / نه)');
+          setStatus('confirmed');
+        } else {
+          newMessages.push('❌ خطا در ثبت اطلاعات: ' + json.error);
         }
+      } catch {
+        newMessages.push('❌ خطای شبکه!');
       }
+    } else if (unanswered.length === 0 && !location) {
+      newMessages.push('📍 لطفاً ابتدا موقعیت ملک را روی نقشه انتخاب و تأیید کنید.');
     }
 
     setMessages(newMessages);

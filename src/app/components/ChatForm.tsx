@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { extractInfoFromText } from '@/lib/extractInfoFromText';
+import { useLocation } from '@/context/LocationContext';
 
 const questions = [
   { key: 'type', text: 'نوع ملک؟ (آپارتمان، زمین، ویلا...)' },
   { key: 'area', text: 'متراژ چقدره؟' },
-  { key: 'location', text: 'کجاست؟ شهر یا منطقه؟' },
   { key: 'priceRange', text: 'حدود قیمت چنده؟' },
   { key: 'contact', text: 'شماره تماس برای پیگیری؟' }
 ];
@@ -16,9 +16,9 @@ export default function ChatForm() {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [input, setInput] = useState('');
   const [askedKeys, setAskedKeys] = useState<Set<string>>(new Set());
-  const [done, setDone] = useState(false);
+  const [status, setStatus] = useState<'asking' | 'confirmed' | 'done'>('asking');
+  const { location } = useLocation();
 
-  // راه‌اندازی اولیه
   const resetForm = () => {
     setMessages([
       'سلام! به مکانمند خوش اومدی 👋',
@@ -31,7 +31,7 @@ export default function ChatForm() {
     setFormData({});
     setInput('');
     setAskedKeys(new Set(['type']));
-    setDone(false);
+    setStatus('asking');
   };
 
   useEffect(() => {
@@ -39,48 +39,86 @@ export default function ChatForm() {
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || done) return;
+    if (!input.trim()) return;
 
-    const newMessages = [...messages, `● ${input}`];
+    let newMessages = [...messages, `● ${input}`];
+
+    if (status === 'confirmed') {
+      const answer = input.trim().toLowerCase();
+      if (['بله', 'بلی', 'آره', 'باشه', 'ثبت کن'].includes(answer)) {
+        newMessages.push('✅ عالی! لطفاً اطلاعات ملک بعدی را وارد کن.');
+        setMessages(newMessages);
+        resetForm();
+      } else {
+        newMessages.push('🙏 ممنون از همراهی‌تون. به امید دیدار.');
+        setMessages(newMessages);
+        setStatus('done');
+      }
+      setInput('');
+      return;
+    }
 
     const extracted = extractInfoFromText(input);
-    const cleaned = Object.fromEntries(Object.entries(extracted).filter(([_, val]) => val?.trim() !== ''));
+    const cleaned = Object.fromEntries(
+      Object.entries(extracted).filter(([_, val]) => val?.trim() !== '')
+    );
     const updatedForm = { ...formData, ...cleaned };
-
     setFormData(updatedForm);
 
-    const unanswered = questions.map(q => q.key).filter(
-      key => !updatedForm[key] && !askedKeys.has(key)
-    );
+    const unanswered = questions
+      .map(q => q.key)
+      .filter(key => {
+        const val = updatedForm[key];
+        return typeof val !== 'string' || val.trim() === '';
+      });
+
+    // اگر همه چیز پر شده ولی location روی نقشه مشخص نشده
+    if (unanswered.length === 0 && (!location?.lat || !location?.lng)) {
+      newMessages.push('📍 لطفاً ابتدا محل ملک را روی نقشه انتخاب و تأیید کن.');
+      setMessages(newMessages);
+      setInput('');
+      return;
+    }
 
     if (unanswered.length > 0) {
       const nextKey = unanswered[0];
       const nextQ = questions.find(q => q.key === nextKey);
-      if (nextQ) {
+      if (nextQ && !askedKeys.has(nextKey)) {
         newMessages.push(`– ${nextQ.text}`);
         setAskedKeys(new Set([...askedKeys, nextKey]));
       }
-    } else if (Object.keys(updatedForm).length === questions.length) {
-      newMessages.push('⏳ در حال ارسال اطلاعات...');
+    }
+
+    // اگر همه چیز پره و location مشخص شده، ارسال به دیتابیس
+    if (unanswered.length === 0 && location?.lat && location?.lng && location?.address) {
+      newMessages.push('⏳ در حال ثبت اطلاعات...');
+      const finalData = {
+        ...updatedForm,
+        lat: location.lat,
+        lng: location.lng,
+        locationAddress: location.address
+      };
+
       try {
         const res = await fetch('/api/properties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedForm)
+          body: JSON.stringify(finalData)
         });
         const json = await res.json();
         if (json.success) {
-          newMessages.push('✅ اطلاعات ثبت شد.');
+          newMessages.push('✅ اطلاعات ملک با موفقیت ثبت شد.');
           questions.forEach(q => {
             newMessages.push(`${q.text} ${updatedForm[q.key]}`);
           });
-          newMessages.push('👇 برای ثبت ملک جدید کلیک کن.');
-          setDone(true);
+          newMessages.push(`📍 آدرس نقشه: ${location.address}`);
+          newMessages.push('💬 آیا می‌خوای ملک دیگه‌ای رو ثبت کنی؟ (بله / نه)');
+          setStatus('confirmed');
         } else {
           newMessages.push('❌ خطا در ثبت اطلاعات: ' + json.error);
         }
       } catch {
-        newMessages.push('❌ خطای شبکه!');
+        newMessages.push('❌ خطای شبکه! دوباره تلاش کن.');
       }
     }
 
@@ -94,16 +132,8 @@ export default function ChatForm() {
         {messages.map((msg, i) => (
           <div key={i} style={{ marginBottom: '0.5rem' }}>{msg}</div>
         ))}
-        {done && (
-          <button
-            onClick={resetForm}
-            style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: '#0077cc', color: '#fff', border: 'none', borderRadius: '4px' }}
-          >
-            ثبت ملک جدید 🏠
-          </button>
-        )}
       </div>
-      {!done && (
+      {status !== 'done' && (
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             value={input}
