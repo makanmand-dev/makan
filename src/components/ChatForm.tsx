@@ -7,7 +7,6 @@ import { useLocation } from '@/context/LocationContext';
 const questions = [
   { key: 'type', text: 'نوع ملک؟ (آپارتمان، زمین، ویلا...)' },
   { key: 'area', text: 'متراژ چقدره؟' },
-  { key: 'location', text: 'کجاست؟ شهر یا منطقه؟' },
   { key: 'priceRange', text: 'حدود قیمت چنده؟' },
   { key: 'contact', text: 'شماره تماس برای پیگیری؟' }
 ];
@@ -25,7 +24,7 @@ export default function ChatForm() {
       'سلام! به مکانمند خوش اومدی 👋',
       'ما اینجا هستیم تا اطلاعات ملک‌تو راحت و دقیق ثبت کنیم.',
       'کافیه فقط اطلاعات ملک‌تو بنویسی؛ مثلاً:',
-      '● یه آپارتمان ۸۵ متری تو شیراز دارم، حدود ۳ میلیارد',
+      '● یه آپارتمان ۸۵ متری تو شیراز سه راه مهران دارم، حدود ۳ میلیارد',
       'یا اگر ترجیح می‌دی، به سؤالات ساده زیر پاسخ بده.',
       `– ${questions[0].text}`
     ]);
@@ -44,11 +43,10 @@ export default function ChatForm() {
 
     let newMessages = [...messages, `● ${input}`];
 
-    // مرحله تأیید کاربر بعد از ثبت ملک
     if (status === 'confirmed') {
       const answer = input.trim().toLowerCase();
       if (['بله', 'بلی', 'آره', 'باشه', 'ثبت کن'].includes(answer)) {
-        newMessages.push('✅ خیلی خب، بزن بریم!');
+        newMessages.push('✅ عالی! لطفاً اطلاعات ملک بعدی را وارد کن.');
         setMessages(newMessages);
         resetForm();
       } else {
@@ -65,12 +63,22 @@ export default function ChatForm() {
       Object.entries(extracted).filter(([_, val]) => val?.trim() !== '')
     );
     const updatedForm = { ...formData, ...cleaned };
-
     setFormData(updatedForm);
 
     const unanswered = questions
       .map(q => q.key)
-      .filter(key => !updatedForm[key] || updatedForm[key].trim() === '');
+      .filter(key => {
+        const val = updatedForm[key];
+        return typeof val !== 'string' || val.trim() === '';
+      });
+
+    // اگر همه چیز پر شده ولی location روی نقشه مشخص نشده
+    if (unanswered.length === 0 && (!location?.lat || !location?.lng)) {
+      newMessages.push('📍 لطفاً ابتدا محل ملک را روی نقشه انتخاب و تأیید کن.');
+      setMessages(newMessages);
+      setInput('');
+      return;
+    }
 
     if (unanswered.length > 0) {
       const nextKey = unanswered[0];
@@ -81,8 +89,9 @@ export default function ChatForm() {
       }
     }
 
-    if (unanswered.length === 0 && location) {
-      newMessages.push('⏳ در حال ارسال اطلاعات...');
+    // اگر همه چیز پره و location مشخص شده، ارسال به دیتابیس
+    if (unanswered.length === 0 && location?.lat && location?.lng && location?.address) {
+      newMessages.push('⏳ در حال ثبت اطلاعات...');
       const finalData = {
         ...updatedForm,
         lat: location.lat,
@@ -102,17 +111,15 @@ export default function ChatForm() {
           questions.forEach(q => {
             newMessages.push(`${q.text} ${updatedForm[q.key]}`);
           });
-          newMessages.push(`📍 موقعیت: ${location.address}`);
+          newMessages.push(`📍 آدرس نقشه: ${location.address}`);
           newMessages.push('💬 آیا می‌خوای ملک دیگه‌ای رو ثبت کنی؟ (بله / نه)');
           setStatus('confirmed');
         } else {
           newMessages.push('❌ خطا در ثبت اطلاعات: ' + json.error);
         }
       } catch {
-        newMessages.push('❌ خطای شبکه!');
+        newMessages.push('❌ خطای شبکه! دوباره تلاش کن.');
       }
-    } else if (unanswered.length === 0 && !location) {
-      newMessages.push('📍 لطفاً ابتدا موقعیت ملک را روی نقشه انتخاب و تأیید کنید.');
     }
 
     setMessages(newMessages);
