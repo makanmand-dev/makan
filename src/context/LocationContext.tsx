@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useState, useContext, ReactNode } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 type LocationData = {
   lat: number;
@@ -8,16 +8,19 @@ type LocationData = {
   address: string;
 };
 
-const LocationContext = createContext<{
+type LocationContextType = {
   location: LocationData | null;
-  setLocation: (data: LocationData) => void;
-}>({
+  setLocation: (loc: LocationData) => void;
+};
+
+const LocationContext = createContext<LocationContextType>({
   location: null,
   setLocation: () => {},
 });
 
-export function LocationProvider({ children }: { children: ReactNode }) {
+export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<LocationData | null>(null);
+
   return (
     <LocationContext.Provider value={{ location, setLocation }}>
       {children}

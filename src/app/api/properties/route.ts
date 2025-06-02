@@ -1,37 +1,19 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    console.log('📥 درخواست دریافتی:', body);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { type, area, location, priceRange, contact } = body;
+export async function GET() {
+  const { data, error } = await supabase
+    .from('properties')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-    if (!type || !area || !location || !priceRange || !contact) {
-      console.error('⚠️ فیلد ناقص:', { type, area, location, priceRange, contact });
-      return NextResponse.json({ success: false, error: 'اطلاعات ناقص است.' });
-    }
-
-    const { data, error } = await supabase.from('properties').insert([
-      {
-        type,
-        area: parseInt(area),
-        location,
-        price_range: priceRange,
-        contact
-      }
-    ]);
-
-    if (error) {
-      console.error('❌ خطای Supabase:', error.message);
-      return NextResponse.json({ success: false, error: error.message });
-    }
-
-    return NextResponse.json({ success: true, message: 'ثبت شد ✅' });
-
-  } catch (err: any) {
-    console.error('❗ خطای کلی:', err.message || err);
-    return NextResponse.json({ success: false, error: 'خطای داخلی سرور' });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  return NextResponse.json(data);
 }
