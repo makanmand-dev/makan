@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useLocation } from '@/context/LocationContext';
+import { useLocation } from '@/components/context/LocationContext';
 
 export default function ChatForm() {
   const [messages, setMessages] = useState([{ role: 'assistant', content: 'سلام! لطفاً اطلاعات ملک را وارد کنید.' }]);

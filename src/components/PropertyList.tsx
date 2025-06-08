@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useLocation } from '@/context/LocationContext';
+import { useLocation } from '@/components/context/LocationContext';
 
 export default function PropertyList() {
   const [properties, setProperties] = useState<any[]>([]);

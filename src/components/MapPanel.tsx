@@ -3,8 +3,8 @@
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useEffect, useState } from 'react';
-import { useLocation } from '@/context/LocationContext';
+import { useState } from 'react';
+import { useLocation } from './context/LocationContext';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -21,12 +21,14 @@ function LocationMarker() {
     click(e) {
       const { lat, lng } = e.latlng;
       setPosition(e.latlng);
-
       fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
         .then(res => res.json())
         .then(data => {
-          const address = data.display_name;
-          setLocation({ lat, lng, address });
+          setLocation({
+            lat,
+            lng,
+            address: data.display_name,
+          });
         });
     },
   });
@@ -36,14 +38,10 @@ function LocationMarker() {
 
 export default function MapPanel() {
   return (
-    <MapContainer
-      center={[35.6892, 51.389]} // موقعیت پیش‌فرض تهران
-      zoom={13}
-      style={{ height: '100%', width: '100%' }}
-    >
+    <MapContainer center={[35.6892, 51.389]} zoom={13} style={{ height: '100%', width: '100%' }}>
       <TileLayer
         attribution='&copy; OpenStreetMap contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
       />
       <LocationMarker />
     </MapContainer>
