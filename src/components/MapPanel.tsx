@@ -38,12 +38,17 @@ function LocationMarker() {
 
 export default function MapPanel() {
   return (
-    <MapContainer center={[35.6892, 51.389]} zoom={13} style={{ height: '100%', width: '100%' }}>
-      <TileLayer
-        attribution='&copy; OpenStreetMap contributors'
-        url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-      />
-      <LocationMarker />
-    </MapContainer>
+    <div className="flex flex-col items-start justify-start p-4 space-y-4 w-full h-full">
+      <h2 className="text-lg font-bold hidden group-hover:block">نقشه ملک</h2>
+      <div className="flex-1 w-full">
+        <MapContainer center={[35.6892, 51.389]} zoom={13} style={{ height: '100%', width: '100%' }}>
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+          />
+          <LocationMarker />
+        </MapContainer>
+      </div>
+    </div>
   );
 }

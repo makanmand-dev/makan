@@ -1,27 +1,31 @@
 'use client';
 
+import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import Sidebar from '../components/Sidebar';
-import ChatForm from '../components/ChatForm';
-import PropertyList from '../components/PropertyList';
-import { LocationProvider } from '../components/context/LocationContext';
+import ChatForm from '@/components/ChatForm';
+import Sidebar from '@/components/Sidebar';
+import { LocationProvider } from '@/components/context/LocationContext';
 
-const MapPanel = dynamic(() => import('../components/MapPanel'), { ssr: false });
+const MapPanel = dynamic(() => import('@/components/MapPanel'), { ssr: false });
 
 export default function HomePage() {
   return (
     <LocationProvider>
-      <div className="flex h-screen w-full bg-gray-100">
-        <aside className="w-[250px] border-r bg-white shadow-md overflow-y-auto">
+      <div className="flex min-h-screen">
+        {/* سایدبار چپ */}
+        <div className="w-1/5 bg-gray-100 border-r p-4">
           <Sidebar />
-          <PropertyList />
-        </aside>
-        <main className="flex-1 flex flex-col p-4 overflow-y-auto">
+        </div>
+
+        {/* محتوای میانی */}
+        <div className="flex-1 p-4 overflow-y-auto">
           <ChatForm />
-        </main>
-        <aside className="w-[350px] border-l bg-white shadow-md overflow-y-auto">
+        </div>
+
+        {/* سایدبار راست */}
+        <div className="w-1/3 bg-gray-50 border-l p-4">
           <MapPanel />
-        </aside>
+        </div>
       </div>
     </LocationProvider>
   );
